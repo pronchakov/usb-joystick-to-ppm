@@ -7,6 +7,9 @@
 #define onState 1  //set polarity of the pulses: 1 is positive, 0 is negative
 #define sigPin 8 //set PPM signal output pin on the arduino
 
+#define MODE_BUTTONS_PRESENT 1
+#define MODES_COUNT 6
+
 int ledLatchPin = 2;
 int ledClockPin = 3;
 int ledDataPin = 4;
@@ -14,8 +17,6 @@ int ledDataPin = 4;
 int buttonsLatchPin = 5;
 int buttonsClockPin = 6;
 int buttonsDataPin = 7;
-
-#define MODES_COUNT 6
 
 byte modes[MODES_COUNT] = {0x01, 0x02, 0x04, 0x08, 0x10, 0x20};
 int modesPPM[MODES_COUNT] = {1080, 1240, 1400, 1560, 1740, 1900};
@@ -31,10 +32,7 @@ USB Usb;
 USBHub Hub(&Usb);
 HIDUniversal Hid(&Usb);
 
-int cycleCount;
-bool is_led_on = false;
-
-JoystickReportParser Joy(ppm, &cycleCount, &is_led_on);
+JoystickReportParser Joy(ppm);
 
 byte currentButtonsByte = modes[0];
 
@@ -141,24 +139,26 @@ int findMode(byte b) {
 }
 
 void loop() {
-    digitalWrite(buttonsLatchPin, LOW);
-    digitalWrite(buttonsLatchPin, HIGH);
-    digitalWrite(buttonsClockPin, LOW);
-    byte readButtonsByte = shiftIn168(buttonsDataPin, buttonsClockPin, MSBFIRST);
+    if (MODE_BUTTONS_PRESENT) {
+        digitalWrite(buttonsLatchPin, LOW);
+        digitalWrite(buttonsLatchPin, HIGH);
+        digitalWrite(buttonsClockPin, LOW);
+        byte readButtonsByte = shiftIn168(buttonsDataPin, buttonsClockPin, MSBFIRST);
 
-    int modeIndex;
-    if (readButtonsByte != currentButtonsByte && readButtonsByte != 0x00 && (modeIndex = findMode(readButtonsByte)) != -1) {
-        digitalWrite(ledLatchPin, LOW);
-        shiftOut(ledDataPin, ledClockPin, MSBFIRST, readButtonsByte);
-        digitalWrite(ledLatchPin, HIGH);
-        currentButtonsByte = readButtonsByte;
+        int modeIndex;
+        if (readButtonsByte != currentButtonsByte && readButtonsByte != 0x00 && (modeIndex = findMode(readButtonsByte)) != -1) {
+            digitalWrite(ledLatchPin, LOW);
+            shiftOut(ledDataPin, ledClockPin, MSBFIRST, readButtonsByte);
+            digitalWrite(ledLatchPin, HIGH);
+            currentButtonsByte = readButtonsByte;
 
-        ppm[4] = modesPPM[modeIndex];
+            ppm[4] = modesPPM[modeIndex];
 
-        Serial.print("Button changed: ");
-        Serial.print(currentButtonsByte, HEX);
-        Serial.print(", ppm mode: ");
-        Serial.println(ppm[4]);
+            Serial.print("Button changed: ");
+            Serial.print(currentButtonsByte, HEX);
+            Serial.print(", ppm mode: ");
+            Serial.println(ppm[4]);
+        }
     }
 
     Usb.Task();
